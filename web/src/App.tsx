@@ -95,6 +95,9 @@ function Dashboard({ data, showInfo, filters, onMonth }: {
   const categories = query
     ? data.categories.filter(c => `${c.name} ${c.id ?? ''}`.toLocaleLowerCase('ru').includes(query))
     : allCategories ? data.categories : data.categories.slice(0, 6);
+  const categoryRevenue = data.meta.source === 'mart'
+    ? data.categories.reduce((sum, category) => sum + category.revenueCents, 0)
+    : k.revenueCents;
   return <>
     <section className="metrics-grid" aria-label="Ключевые показатели">
       <Metric label="Товарная выручка" Icon={BarChart3} value={money(k.revenueCents)} compact={shortMoney(k.revenueCents)} caption="Доставленные товары · без доставки" onInfo={() => showInfo('revenue')} />
@@ -121,7 +124,7 @@ function Dashboard({ data, showInfo, filters, onMonth }: {
         </div>
         {query && <p className="category-search-note" role="status">Найдено: {categories.length}. Доли указаны от общей выручки.</p>}
 
-        <div className="category-total"><span>Все категории{data.meta.categoryCount ? ` (${data.meta.categoryCount})` : ''}</span><strong>{money(k.revenueCents)}</strong><span>100%</span></div>
+        <div className="category-total"><span>Все категории{data.meta.categoryCount ? ` (${data.meta.categoryCount})` : ''}</span><strong>{money(categoryRevenue)}</strong><span>100%</span></div>
       </section>
     </div>
     <section className="order-summary" aria-label="Состав заказа"><Package size={17} /><span>В среднем на доставленный заказ</span><strong>{k.averageLines === null ? '—' : decimal(k.averageLines, data.meta.source === 'team-snapshot' ? 6 : 3)} <small>товарной строки</small></strong><strong>{k.averageUnits === null ? '—' : decimal(k.averageUnits, data.meta.source === 'team-snapshot' ? 6 : 3)} <small>единицы</small></strong><InfoButton label="Строки и единицы в заказе" onClick={() => showInfo('average')} /></section>
@@ -172,6 +175,7 @@ export default function App() {
         <div className="filter-scope"><SlidersHorizontal size={13} /><span>Регион — по покупателю</span></div>
       </div>}
       <div className={`source-strip ${snapshot || data?.meta.source === 'core' || data?.meta.source === 'mart' ? 'core' : ''}`}><span className="source-label"><i />{snapshot ? 'Сохранённый отчёт' : data?.meta.source === 'mart' ? 'Подключено к базе' : data?.meta.source === 'core' ? 'Подключено к базе' : data?.meta.source === 'demo' ? 'Демонстрационные данные' : 'Загрузка источника…'}</span><span className="source-description">{data?.meta.source === 'mart' ? (route.page === 'model' ? 'Структура raw → core → mart' : route.page === 'quality' ? 'Проверки по всей истории заказов' : 'Показатели за выбранный период и регион') : snapshot ? 'Архивный отчёт · 28.10.2026 · без обновления данных' : data?.meta.source === 'core' ? 'Данные обновляются раз в минуту' : data?.meta.source === 'demo' ? 'Тестовый набор · демонстрационный режим' : ''}</span><span className="currency-note">Валюта: бразильский реал (BRL)</span><button type="button" className="source-info" aria-label="Об источнике данных" onClick={() => setExplanation('source')}><Info size={15} /></button></div>
+      {data?.meta.source === 'mart' && <div className="snapshot-note"><Database size={15} /><span>Категории: обновлено {data.meta.categoryMartRefreshedAt ? new Date(data.meta.categoryMartRefreshedAt).toLocaleString('ru-RU') : 'ещё не обновлено'}. {data.meta.categoryMartWarning ? 'Обновление не удалось; показан предыдущий корректный результат.' : ''}</span></div>}
       {snapshot && <div className="snapshot-note"><Check size={15} /><span>Сохранённый отчёт за полный период. Выбор периода и региона недоступен.</span></div>}
       <div className="status-region" role="status" aria-live="polite">{loading ? 'Загрузка аналитики…' : snapshot ? 'Показан сохранённый отчёт.' : error ? '' : route.page === 'model' ? 'Модель данных и аналитические витрины.' : route.page === 'quality' ? 'Контроль качества всего набора данных.' : `Обновлено. ${integer(data?.kpis.allOrders || 0)} заказов в выбранном срезе.`}</div>
       {route.page === 'orders' ? <OrdersPage filters={filters} revision={refresh} orderId={route.orderId} openOrder={openOrder} closeOrder={() => { window.location.hash = '/orders'; }} /> : route.page === 'quality' ? <QualityPage revision={refresh} /> : route.page === 'model' ? <ModelPage revision={refresh} /> : error ? <section className="error-panel"><div className="error-symbol"><Database size={25} /></div><h2>Не получилось загрузить аналитику</h2><p>{error}</p><button type="button" className="button primary" onClick={() => setRefresh(n => n + 1)}><RefreshCw size={16} />Повторить</button></section> : !data ? <div className="loading-layout" aria-hidden="true"><div className="metrics-grid">{[0, 1, 2, 3].map(i => <div className="skeleton metric-card" key={i} />)}</div><div className="skeleton chart-skeleton" /></div> : <div className={`dashboard-content ${loading ? 'updating' : ''}`} aria-busy={loading} inert={loading ? true : undefined}>
